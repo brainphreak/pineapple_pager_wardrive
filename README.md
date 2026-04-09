@@ -148,25 +148,7 @@ Wigle CSV files are written in real-time — no data loss on battery death or cr
 
 ## Bootloader Integration
 
-If using the [Pagerctl Bootloader](https://github.com/pineapple-pager-projects/pineapple_pager_bootloader), add this launch script to `scripts/`:
-
-```sh
-#!/bin/sh
-# Title: Wardrive
-# Requires: /root/payloads/user/reconnaissance/wardrive
-# Category: Reconnaissance
-
-PAYLOAD_DIR="/root/payloads/user/reconnaissance/wardrive"
-cd "$PAYLOAD_DIR" || exit 1
-export PATH="/mmc/usr/bin:$PAYLOAD_DIR/bin:$PATH"
-export PYTHONPATH="$PAYLOAD_DIR/lib:$PAYLOAD_DIR:$PYTHONPATH"
-export LD_LIBRARY_PATH="/mmc/usr/lib:$PAYLOAD_DIR/lib:$LD_LIBRARY_PATH"
-/etc/init.d/pineapplepager stop 2>/dev/null
-sleep 0.3
-mkdir -p /mmc/root/loot/wardrive/captures /mmc/root/loot/wardrive/exports
-python3 wardrive.py
-exit 0
-```
+A launch script for the [Pagerctl Bootloader](https://github.com/pineapple-pager-projects/pineapple_pager_bootloader) is already included in the bootloader repository. Wardrive will automatically appear in the bootloader menu when installed.
 
 ## Credits
 
