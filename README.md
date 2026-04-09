@@ -2,6 +2,10 @@
 
 A wardriving dashboard for the WiFi Pineapple Pager. Captures WiFi networks with GPS coordinates, generates Wigle-compatible CSV files, captures WPA handshakes, and uploads directly to wigle.net.
 
+<p align="center">
+  <img src="screenshots/dashboard.png" width="480" alt="Dashboard">
+</p>
+
 ## Features
 
 - **Stealth Mode** — Passive beacon capture on monitor interface with channel hopping. No probes sent, covers 2.4GHz + 5GHz + 6GHz on the built-in radio.
@@ -57,6 +61,18 @@ Uses `iw scan` on the managed interface (`wlan0`). Sends probe requests for fast
 ## Settings
 
 Access via **B button** on the LCD or the web UI at port 8080.
+
+<p align="center">
+  <img src="screenshots/gps_settings.png" width="380" alt="GPS Settings">
+  <img src="screenshots/scan_settings.png" width="380" alt="Scan Settings">
+</p>
+<p align="center">
+  <img src="screenshots/wigle_settings.png" width="380" alt="Wigle Settings">
+  <img src="screenshots/device_settings.png" width="380" alt="Device Settings">
+</p>
+<p align="center">
+  <img src="screenshots/data_settings.png" width="380" alt="Data Management">
+</p>
 
 ### GPS Settings
 - GPS: ON/OFF
