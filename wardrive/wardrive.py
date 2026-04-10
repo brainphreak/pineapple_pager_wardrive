@@ -58,6 +58,7 @@ class Wardrive:
         self.current_channel = 0
         self.new_ap_count = 0  # New APs in last scan (for geiger sound)
         self.scan_state = 'stopped'  # 'scanning', 'paused', 'stopped'
+        self.paused_elapsed = 0  # Accumulated time before pause
         self.wigle_writer = WigleWriter(EXPORT_DIR)
 
         # Screen timeout
@@ -236,6 +237,8 @@ class Wardrive:
                 action = items[selected]
                 if action == "Pause Scan":
                     self.scan_state = 'paused'
+                    # Freeze timer — save elapsed so far
+                    self.paused_elapsed += int(time.time() - self.start_time)
                     self._stop_threads()
                     try:
                         self.pager.beep(600, 150)
@@ -244,6 +247,8 @@ class Wardrive:
                     return
                 elif action == "Resume Scan":
                     self.scan_state = 'scanning'
+                    # Resume timer from where we paused
+                    self.start_time = time.time()
                     self.stop_event.clear()
                     self._start_threads()
                     try:
@@ -254,9 +259,10 @@ class Wardrive:
                 elif action == "Stop Scan":
                     self.scan_state = 'stopped'
                     self._stop_threads()
-                    # Reset stats and start new file on next start
                     self._archive_session()
+                    # Reset timer
                     self.start_time = time.time()
+                    self.paused_elapsed = 0
                     try:
                         self.pager.beep(400, 200)
                     except Exception:
@@ -267,7 +273,9 @@ class Wardrive:
                     self.wigle_writer.start_session()
                     self.stop_event.clear()
                     self._start_threads()
+                    # Fresh timer
                     self.start_time = time.time()
+                    self.paused_elapsed = 0
                     try:
                         self.pager.beep(1000, 200)
                     except Exception:
@@ -450,7 +458,10 @@ class Wardrive:
                 # Get stats for dashboard
                 stats = self.db.get_stats()
                 gps = self.gps_state.copy()
-                elapsed = int(time.time() - self.start_time)
+                if self.scan_state == 'paused':
+                    elapsed = self.paused_elapsed
+                else:
+                    elapsed = self.paused_elapsed + int(time.time() - self.start_time)
                 bands = {
                     '2.4': self.config['scan_2_4ghz'],
                     '5': self.config['scan_5ghz'],
