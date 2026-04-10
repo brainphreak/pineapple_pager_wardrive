@@ -57,7 +57,7 @@ class Wardrive:
         self.last_scan_time = ""
         self.current_channel = 0
         self.new_ap_count = 0  # New APs in last scan (for geiger sound)
-        self.scanning = False  # Start/stop state
+        self.scan_state = 'stopped'  # 'scanning', 'paused', 'stopped'
         self.wigle_writer = WigleWriter(EXPORT_DIR)
 
         # Screen timeout
@@ -67,7 +67,7 @@ class Wardrive:
         # Web server for downloading loot
         self.web_server = None
         if self.config.get('web_server', True):
-            self.web_server = WebServer(port=self.config.get('web_port', 8888))
+            self.web_server = WebServer(port=self.config.get('web_port', 8080))
             self.web_server.start()
 
     def _get_channels(self):
@@ -182,17 +182,26 @@ class Wardrive:
             pass
 
     def _show_scan_menu(self):
-        """Show scan control popup."""
+        """Show scan control popup with pause/stop/resume."""
         from config import SCREEN_W, SCREEN_H, FONT_TITLE, FONT_MENU
         selected = 0
 
-        if self.scanning:
-            items = ["Stop Scan", "Cancel"]
-        else:
-            items = ["Start Scan", "Cancel"]
-
         while True:
-            # Draw popup over dashboard
+            # Build menu items based on current state
+            if self.scan_state == 'scanning':
+                items = ["Pause Scan", "Stop Scan", "Cancel"]
+                status = "Scanning"
+            elif self.scan_state == 'paused':
+                items = ["Resume Scan", "Stop Scan", "Cancel"]
+                status = "Paused"
+            else:
+                items = ["Start Scan", "Cancel"]
+                status = "Stopped"
+
+            if selected >= len(items):
+                selected = 0
+
+            # Draw
             if self.dashboard.bg_image:
                 try:
                     self.pager.draw_image_file_scaled(0, 0, SCREEN_W, SCREEN_H, self.dashboard.bg_image)
@@ -205,12 +214,11 @@ class Wardrive:
             sel_color = self.pager.rgb(0, 255, 0)
             unsel_color = self.pager.rgb(255, 255, 255)
 
-            status = "Scanning" if self.scanning else "Stopped"
             tw = self.pager.ttf_width(status, FONT_TITLE, 28)
             self.pager.draw_ttf((SCREEN_W - tw) // 2, 40, status, title_color, FONT_TITLE, 28)
 
             for i, item in enumerate(items):
-                y = 90 + i * 24
+                y = 85 + i * 24
                 color = sel_color if i == selected else unsel_color
                 tw = self.pager.ttf_width(item, FONT_MENU, 18)
                 self.pager.draw_ttf((SCREEN_W - tw) // 2, y, item, color, FONT_MENU, 18)
@@ -218,26 +226,55 @@ class Wardrive:
             self.pager.flip()
 
             button = self.pager.wait_button()
-            if button & self.pager.BTN_UP or button & self.pager.BTN_DOWN:
-                selected = 1 - selected
+            if button & self.pager.BTN_UP:
+                if selected > 0:
+                    selected -= 1
+            elif button & self.pager.BTN_DOWN:
+                if selected < len(items) - 1:
+                    selected += 1
             elif button & self.pager.BTN_A:
-                if selected == 0:
-                    if self.scanning:
-                        self.scanning = False
-                        self._stop_threads()
-                        try:
-                            self.pager.beep(400, 200)
-                        except Exception:
-                            pass
-                    else:
-                        self.scanning = True
-                        self.stop_event.clear()
-                        self._start_threads()
-                        try:
-                            self.pager.beep(1000, 200)
-                        except Exception:
-                            pass
-                return
+                action = items[selected]
+                if action == "Pause Scan":
+                    self.scan_state = 'paused'
+                    self._stop_threads()
+                    try:
+                        self.pager.beep(600, 150)
+                    except Exception:
+                        pass
+                    return
+                elif action == "Resume Scan":
+                    self.scan_state = 'scanning'
+                    self.stop_event.clear()
+                    self._start_threads()
+                    try:
+                        self.pager.beep(1000, 150)
+                    except Exception:
+                        pass
+                    return
+                elif action == "Stop Scan":
+                    self.scan_state = 'stopped'
+                    self._stop_threads()
+                    # Reset stats and start new file on next start
+                    self._archive_session()
+                    self.start_time = time.time()
+                    try:
+                        self.pager.beep(400, 200)
+                    except Exception:
+                        pass
+                    return
+                elif action == "Start Scan":
+                    self.scan_state = 'scanning'
+                    self.wigle_writer.start_session()
+                    self.stop_event.clear()
+                    self._start_threads()
+                    self.start_time = time.time()
+                    try:
+                        self.pager.beep(1000, 200)
+                    except Exception:
+                        pass
+                    return
+                elif action == "Cancel":
+                    return
             elif button & self.pager.BTN_B:
                 return
 
@@ -391,12 +428,12 @@ class Wardrive:
             self.wigle_writer.start_session()
 
         # Start scanning immediately
-        self.scanning = True
+        self.scan_state = 'scanning'
         self._start_threads()
 
         try:
             while True:
-                if self.scanning:
+                if self.scan_state == 'scanning':
                     # Process background data
                     new_aps = self._process_scan_results()
                     self._process_captures()
