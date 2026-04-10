@@ -104,10 +104,16 @@ class Wardrive:
             )
         self.scanner.start()
 
-        # GPS
+        # GPS — auto-detect device if not set or missing
         if self.config['gps_enabled']:
+            gps_dev = self.config.get('gps_device', '')
+            if not gps_dev or not os.path.exists(gps_dev):
+                gps_dev = self._auto_detect_gps()
+                if gps_dev:
+                    self.config['gps_device'] = gps_dev
+                    save_config(self.config)
             self.gps_reader = GpsReader(
-                self.config['gps_device'],
+                gps_dev or '/dev/ttyACM0',
                 self.config['gps_baud'],
                 self.gps_state,
                 self.stop_event
@@ -283,6 +289,28 @@ class Wardrive:
                     return
             elif button & self.pager.BTN_B:
                 return
+
+    def _auto_detect_gps(self):
+        """Auto-detect GPS device by excluding known internal devices."""
+        import glob as _glob
+        exclude = ['uart', 'jtag', 'spi', 'i2c', 'debug', 'ehci', 'hub',
+                   'wireless_device', 'csr8510', 'bluetooth']
+        for pattern in ['/dev/ttyACM*', '/dev/ttyUSB*']:
+            for dev in sorted(_glob.glob(pattern)):
+                try:
+                    dev_name = os.path.basename(dev)
+                    d = os.path.realpath(f'/sys/class/tty/{dev_name}/device')
+                    for _ in range(5):
+                        d = os.path.dirname(d)
+                        pf = os.path.join(d, 'product')
+                        if os.path.isfile(pf):
+                            product = open(pf).read().strip().lower()
+                            if not any(kw in product for kw in exclude):
+                                return dev
+                            break
+                except Exception:
+                    pass
+        return None
 
     def _get_battery(self):
         """Read battery percentage (0-100) or None."""
