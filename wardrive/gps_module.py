@@ -79,30 +79,20 @@ class GpsReader(threading.Thread):
             pass
 
     def restart_gpsd(self, device=None, baud=None):
-        """Restart gpsd with given or current device/baud."""
+        """Restart gpsd with given device. Does not modify system config."""
         if device:
             self.device = device
-        if baud:
+        if baud and baud != 'auto':
             self.baud = baud
         try:
             subprocess.run(['killall', 'gpsd'], capture_output=True, timeout=3)
             time.sleep(0.5)
-            # Configure via uci if available
-            subprocess.run(['uci', 'set', f'gpsd.core.device={self.device}'],
-                           capture_output=True, timeout=3)
-            subprocess.run(['uci', 'commit', 'gpsd'],
-                           capture_output=True, timeout=3)
-            subprocess.run(['/etc/init.d/gpsd', 'restart'],
-                           capture_output=True, timeout=5)
+            subprocess.Popen(
+                ['gpsd', '-n', '-b', self.device],
+                stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
+            )
         except Exception:
-            # Fallback: start gpsd directly
-            try:
-                subprocess.Popen(
-                    ['gpsd', '-n', '-b', self.device],
-                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL
-                )
-            except Exception:
-                pass
+            pass
         time.sleep(1)
 
     def _read_gpspipe(self):
