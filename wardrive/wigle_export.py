@@ -65,11 +65,15 @@ class WigleWriter:
 
             auth = ap.get('auth_mode') or _auth_mode_string(ap.get('encryption', 'Open'))
             freq = ap.get('frequency') or _channel_to_freq(ap.get('channel', 0))
+            # Format timestamp to match pager format (YYYY-MM-DD HH:MM:SS)
+            first_seen = ap.get('first_seen', '')
+            if 'T' in first_seen:
+                first_seen = first_seen.replace('T', ' ').split('.')[0]
             new_rows.append([
                 bssid,
                 ap.get('ssid', ''),
                 auth,
-                ap.get('first_seen', ''),
+                first_seen,
                 ap.get('channel', 0),
                 freq,
                 ap.get('signal', -80),
@@ -128,8 +132,11 @@ def export_csv(db, export_dir, filename=None):
         for ap in aps:
             auth = ap.get('auth_mode') or _auth_mode_string(ap['encryption'])
             freq = ap.get('frequency') or _channel_to_freq(ap['channel'])
+            first_seen = ap['first_seen']
+            if 'T' in first_seen:
+                first_seen = first_seen.replace('T', ' ').split('.')[0]
             writer.writerow([
-                ap['bssid'], ap['ssid'], auth, ap['first_seen'],
+                ap['bssid'], ap['ssid'], auth, first_seen,
                 ap['channel'], freq, ap['signal'],
                 ap['lat'] or 0.0, ap['lon'] or 0.0, ap['alt'] or 0.0,
                 0, '', '', 'WIFI'
