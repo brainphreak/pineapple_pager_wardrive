@@ -283,9 +283,13 @@ class SettingsMenu:
             if dev and os.path.exists(dev):
                 product = self._get_device_product(dev)
                 short = os.path.basename(dev)
-                # Shorten product name for menu display
                 if product:
-                    product = product.replace(' receiver', '').replace(' module', '')
+                    # Shorten: remove common suffixes, truncate to ~15 chars
+                    for strip in [' Receiver', ' receiver', ' Module', ' module',
+                                  ' - GPS/GNSS', ' GPS/GNSS', '/GNSS', ' - GPS']:
+                        product = product.replace(strip, '')
+                    if len(product) > 14:
+                        product = product[:14].rstrip()
                     dev_label = f"{product} ({short})"
                 else:
                     dev_label = short
