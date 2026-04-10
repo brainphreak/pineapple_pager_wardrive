@@ -114,11 +114,9 @@ class SettingsMenu:
 
             button = self.pager.wait_button()
             if button & self.pager.BTN_UP:
-                if selected > 0:
-                    selected -= 1
+                selected = (selected - 1) % len(items)
             elif button & self.pager.BTN_DOWN:
-                if selected < len(items) - 1:
-                    selected += 1
+                selected = (selected + 1) % len(items)
             elif button & self.pager.BTN_A:
                 result = action_fn(items[selected])
                 if result == '__back__':
@@ -199,6 +197,11 @@ class SettingsMenu:
 
     def show(self, export_callback=None, upload_callback=None):
         """Run the main settings menu. Returns config dict or '__exit__'."""
+        # Reload config from disk in case web UI changed it
+        from config import load_config
+        fresh = load_config()
+        self.config.update(fresh)
+
         self._export_callback = export_callback
         self._upload_callback = upload_callback
 

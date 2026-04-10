@@ -114,11 +114,9 @@ class SettingsMenu:
 
             button = self.pager.wait_button()
             if button & self.pager.BTN_UP:
-                if selected > 0:
-                    selected -= 1
+                selected = (selected - 1) % len(items)
             elif button & self.pager.BTN_DOWN:
-                if selected < len(items) - 1:
-                    selected += 1
+                selected = (selected + 1) % len(items)
             elif button & self.pager.BTN_A:
                 result = action_fn(items[selected])
                 if result == '__back__':

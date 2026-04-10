@@ -228,11 +228,9 @@ class Wardrive:
 
             button = self.pager.wait_button()
             if button & self.pager.BTN_UP:
-                if selected > 0:
-                    selected -= 1
+                selected = (selected - 1) % len(items)
             elif button & self.pager.BTN_DOWN:
-                if selected < len(items) - 1:
-                    selected += 1
+                selected = (selected + 1) % len(items)
             elif button & self.pager.BTN_A:
                 action = items[selected]
                 if action == "Pause Scan":
