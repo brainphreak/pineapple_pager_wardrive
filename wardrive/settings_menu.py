@@ -258,7 +258,12 @@ class SettingsMenu:
 
         def items_fn():
             dev = c['gps_device']
-            dev_label = dev if dev and os.path.exists(dev) else "Not set"
+            if dev and os.path.exists(dev):
+                product = self._get_device_product(dev)
+                short = os.path.basename(dev)
+                dev_label = f"{product} ({short})" if product else short
+            else:
+                dev_label = "Not set"
             return [
                 {'label': f"GPS: {'ON' if c['gps_enabled'] else 'OFF'}",
                  'key': 'gps_enabled', 'type': 'toggle', 'action': 'toggle'},
@@ -345,11 +350,12 @@ class SettingsMenu:
         return ""
 
     def _get_device_name(self, dev_path):
-        """Get a friendly name for a serial device."""
+        """Get a friendly name for a serial device — product name (ttyACMx)."""
         product = self._get_device_product(dev_path)
+        short = os.path.basename(dev_path)
         if product:
-            return f"{dev_path} ({product})"
-        return dev_path
+            return f"{product} ({short})"
+        return short
 
     # ------------------------------------------------------------------
     # Scan submenu
