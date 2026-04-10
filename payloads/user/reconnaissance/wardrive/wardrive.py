@@ -473,7 +473,8 @@ class Wardrive:
                 self.dashboard.render(
                     stats, gps, elapsed,
                     self.current_channel,
-                    iface, bands, scan_mode, battery
+                    iface, bands, scan_mode, battery,
+                    self.config.get('gps_enabled', True)
                 )
 
                 # Screen timeout

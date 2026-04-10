@@ -159,11 +159,35 @@ class SettingsMenu:
         return ifaces or ['wlan0mon', 'wlan1mon']
 
     def _detect_gps_devices(self):
-        """Detect available serial devices for GPS."""
-        devices = []
+        """Detect available GPS serial devices by checking USB product names."""
+        gps_keywords = ['gps', 'gnss', 'u-blox', 'ublox', 'nmea', 'receiver']
+        gps_devices = []
+        all_devices = []
+
         for pattern in ['/dev/ttyACM*', '/dev/ttyUSB*']:
-            devices.extend(sorted(glob.glob(pattern)))
-        return devices
+            all_devices.extend(sorted(glob.glob(pattern)))
+
+        # Check each device's USB product name
+        for dev in all_devices:
+            dev_name = os.path.basename(dev)
+            is_gps = False
+            try:
+                for usb_product in glob.glob('/sys/bus/usb/devices/*/product'):
+                    product = open(usb_product).read().strip().lower()
+                    parent = os.path.dirname(usb_product)
+                    # Check if this USB device owns our tty
+                    tty_paths = glob.glob(f'{parent}/**/tty/{dev_name}', recursive=True) + \
+                                glob.glob(f'{parent}/**/tty:{dev_name}', recursive=True)
+                    if tty_paths and any(kw in product for kw in gps_keywords):
+                        is_gps = True
+                        break
+            except Exception:
+                pass
+            if is_gps:
+                gps_devices.append(dev)
+
+        # If no GPS detected by product name, show all as fallback
+        return gps_devices if gps_devices else all_devices
 
     def _is_monitor_mode(self, iface):
         """Check if interface is in monitor mode."""
@@ -247,20 +271,17 @@ class SettingsMenu:
 
     def _show_gps_settings(self):
         c = self.config
-        gps_devices = self._detect_gps_devices()
 
         def items_fn():
             dev = c['gps_device']
-            dev_label = dev if dev and os.path.exists(dev) else "None found"
+            dev_label = dev if dev and os.path.exists(dev) else "Not set"
             return [
                 {'label': f"GPS: {'ON' if c['gps_enabled'] else 'OFF'}",
                  'key': 'gps_enabled', 'type': 'toggle', 'action': 'toggle'},
-                {'label': f"Device: {dev_label}", 'key': 'gps_device', 'type': 'cycle',
-                 'options': gps_devices, 'action': 'cycle'},
+                {'label': f"Device: {dev_label}", 'action': 'pick_device'},
                 {'label': f"Baud: {c['gps_baud']}", 'key': 'gps_baud', 'type': 'cycle',
                  'options': [4800, 9600, 38400, 115200], 'action': 'cycle'},
                 {'label': "Restart gpsd", 'action': 'restart_gpsd'},
-                {'label': "Back", 'action': 'back'},
             ]
 
         def action_fn(item):
@@ -280,6 +301,8 @@ class SettingsMenu:
                         idx = -1
                     self.config[item['key']] = opts[(idx + 1) % len(opts)]
                     save_config(self.config)
+            elif action == 'pick_device':
+                self._pick_gps_device()
             elif action == 'restart_gpsd':
                 self._show_message("Restarting gpsd...")
                 if self.gps_reader:
@@ -287,7 +310,53 @@ class SettingsMenu:
                 self._show_message("gpsd restarted")
             return None
 
-        self._run_submenu("GPS Settings", items_fn, action_fn)
+        self._run_submenu("GPS", items_fn, action_fn)
+
+    def _pick_gps_device(self):
+        """Scan for GPS devices and let user pick one."""
+        self._show_message("Scanning for GPS...", 0.5)
+        devices = self._detect_gps_devices()
+
+        if not devices:
+            self._show_message("No GPS devices found")
+            return
+
+        # Build picker with device names
+        def items_fn():
+            items = []
+            for dev in devices:
+                # Try to get product name
+                label = self._get_device_name(dev)
+                items.append({'label': label, 'action': 'select', 'device': dev})
+            return items
+
+        def action_fn(item):
+            if item.get('action') == 'select':
+                self.config['gps_device'] = item['device']
+                save_config(self.config)
+                self._show_message(f"Set: {item['device']}")
+                # Restart gpsd with new device
+                if self.gps_reader:
+                    self.gps_reader.restart_gpsd(item['device'], self.config['gps_baud'])
+                return '__back__'
+            return None
+
+        self._run_submenu("Select GPS", items_fn, action_fn)
+
+    def _get_device_name(self, dev_path):
+        """Get a friendly name for a serial device from USB product info."""
+        dev_name = os.path.basename(dev_path)
+        try:
+            for usb_product in glob.glob('/sys/bus/usb/devices/*/product'):
+                product = open(usb_product).read().strip()
+                parent = os.path.dirname(usb_product)
+                tty_paths = glob.glob(f'{parent}/**/tty/{dev_name}', recursive=True) + \
+                            glob.glob(f'{parent}/**/tty:{dev_name}', recursive=True)
+                if tty_paths:
+                    return f"{dev_path} ({product})"
+        except Exception:
+            pass
+        return dev_path
 
     # ------------------------------------------------------------------
     # Scan submenu

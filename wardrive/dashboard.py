@@ -52,7 +52,7 @@ class Dashboard:
         self.DIM = pager.rgb(120, 120, 120)
         self.ORANGE = pager.rgb(255, 160, 40)
 
-    def render(self, stats, gps, elapsed, current_channel, interface, bands, scan_mode='active', battery=None):
+    def render(self, stats, gps, elapsed, current_channel, interface, bands, scan_mode='active', battery=None, gps_enabled=True):
         """Draw one frame of the dashboard."""
         # Background
         if self.bg_image:
@@ -86,12 +86,14 @@ class Dashboard:
         y = 30
 
         # GPS info — always show all fields, values aligned in column
-        if gps.fix_mode >= 3:
+        if not gps_enabled:
+            fix_text, fix_color = "OFF", self.DIM
+        elif gps.fix_mode >= 3:
             fix_text, fix_color = "3D Fix", self.GREEN
         elif gps.fix_mode >= 2:
             fix_text, fix_color = "2D Fix", self.YELLOW
         else:
-            fix_text, fix_color = "None", self.RED
+            fix_text, fix_color = "No Fix", self.RED
 
         val_x = x_right + 70  # Fixed column for values
 
