@@ -158,6 +158,28 @@ class SettingsMenu:
             pass
         return ifaces or ['wlan0mon', 'wlan1mon']
 
+    def _get_gpsd_baud(self):
+        """Get the baud rate gpsd auto-detected from the GPS device."""
+        try:
+            import json as _json
+            result = subprocess.run(['gpspipe', '-w', '-n', '5'],
+                                    capture_output=True, text=True, timeout=5)
+            for line in result.stdout.split('\n'):
+                if '"DEVICE"' in line or '"bps"' in line:
+                    try:
+                        data = _json.loads(line)
+                        if 'devices' in data:
+                            for dev in data['devices']:
+                                if 'bps' in dev:
+                                    return dev['bps']
+                        elif 'bps' in data:
+                            return data['bps']
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        return None
+
     def _detect_gps_devices(self):
         """Detect serial devices, filtering out known internal/non-GPS devices."""
         # Known internal pager devices to exclude
@@ -269,12 +291,20 @@ class SettingsMenu:
                     dev_label = short
             else:
                 dev_label = "Not set"
+            # Get detected baud from gpsd if available
+            detected_baud = self._get_gpsd_baud()
+            baud_val = c['gps_baud']
+            if baud_val == 0 or baud_val == 'auto':
+                baud_label = f"Baud: Auto ({detected_baud})" if detected_baud else "Baud: Auto"
+            else:
+                baud_label = f"Baud: {baud_val}"
+
             return [
                 {'label': f"GPS: {'ON' if c['gps_enabled'] else 'OFF'}",
                  'key': 'gps_enabled', 'type': 'toggle', 'action': 'toggle'},
                 {'label': f"Device: {dev_label}", 'action': 'pick_device'},
-                {'label': f"Baud: {c['gps_baud']}", 'key': 'gps_baud', 'type': 'cycle',
-                 'options': [4800, 9600, 38400, 115200], 'action': 'cycle'},
+                {'label': baud_label, 'key': 'gps_baud', 'type': 'cycle',
+                 'options': ['auto', 4800, 9600, 38400, 115200], 'action': 'cycle'},
                 {'label': "Restart gpsd", 'action': 'restart_gpsd'},
             ]
 

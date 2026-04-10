@@ -29,7 +29,7 @@ CHANNELS_6 = [1, 5, 9, 13, 17, 21, 25, 29, 33, 37, 41, 45, 49, 53, 57, 61, 65, 6
 DEFAULTS = {
     'gps_enabled': True,
     'gps_device': '',  # Auto-detected on first run
-    'gps_baud': 9600,
+    'gps_baud': 'auto',
     'scan_2_4ghz': True,
     'scan_5ghz': True,
     'scan_6ghz': False,
