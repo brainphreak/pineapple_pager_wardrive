@@ -261,7 +261,12 @@ class SettingsMenu:
             if dev and os.path.exists(dev):
                 product = self._get_device_product(dev)
                 short = os.path.basename(dev)
-                dev_label = f"{product} ({short})" if product else short
+                # Shorten product name for menu display
+                if product:
+                    product = product.replace(' receiver', '').replace(' module', '')
+                    dev_label = f"{product} ({short})"
+                else:
+                    dev_label = short
             else:
                 dev_label = "Not set"
             return [
